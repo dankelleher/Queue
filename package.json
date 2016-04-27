@@ -1,9 +1,9 @@
 {
-  "name": "Queue",
+  "name": "ngQueue",
   "private": true,
   "version": "0.0.1",
   "description": "A simple queue service for angular",
-  "repository": "https://github.com/Westernacher/queue",
+  "repository": "https://github.com/Westernacher/Queue",
   "license": "MIT",
   "devDependencies": {
     "bower": "^1.3.1",

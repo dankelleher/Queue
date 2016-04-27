@@ -1,8 +1,8 @@
 {
-  "name": "angular-seed",
-  "description": "A starter project for AngularJS",
-  "version": "0.0.0",
-  "homepage": "https://github.com/angular/angular-seed",
+  "name": "ngQueue",
+  "description": "A simple queue for AngularJS",
+  "version": "0.0.1",
+  "homepage": "https://github.com/Westernacher/Queue",
   "license": "MIT",
   "private": true,
   "dependencies": {
