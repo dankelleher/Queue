@@ -29,15 +29,33 @@ angular.module('queue', []).factory('Queue', ['$q', function($q) {
 
         // returns a promise which succeeds when all the jobs in the queue are done
         this.awaitAll = function() {
+            // if there are no jobs resolve the promise immediately
+            if (activeSet.length == 0 && waitingList.length == 0) {
+                return $q.when();
+            }
+            
             var observer = $q.defer();
             observers.push(observer);
             return observer.promise;
         };
+        
+        this.waitingListCount = function() {
+            return waitingList.length;
+        }
 
         // start processing the jobs in the queue
         this.start = function() {
             paused = false;
             doNext();
+        };
+
+        // pause the jobs in the queue (existing jobs will be allowed to finish)
+        this.pause = function() {
+            paused = true;
+        };
+
+        this.isPaused = function() {
+            return paused;
         };
 
         // resolves all observers on this queue

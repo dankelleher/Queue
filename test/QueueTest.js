@@ -22,6 +22,11 @@ describe("A PromiseQueue", function() {
         }).then(thenFn);
     }
 
+    function startAndDigest(queue) {
+        queue.start();
+        $rootScope.$digest();
+    }
+
     beforeEach(module('queue'));
 
     beforeEach(inject(function (_$rootScope_, $injector, _$timeout_, _$q_) {
@@ -66,15 +71,18 @@ describe("A PromiseQueue", function() {
 
     it("should execute tasks in serial", function(done) {
         var task1 = immediateTask;
+        
+        // the test will only complete once this task is done
         var task2 = _.partial(thenCall, immediateTask, done);
 
+        // the queue can only run one task at a time
         new PromiseQueue(1)
             .registerAll(task1, task2);
 
         $rootScope.$digest();
     });
 
-    it("should execute all the tasks in serial", function(done) {
+    it("should execute all the tasks in serial", function() {
         var queue = new PromiseQueue(1, true).registerAll(
             countingTask,
             countingTask,
@@ -84,17 +92,14 @@ describe("A PromiseQueue", function() {
             countingTask
         );
 
-        queue.awaitAll().then(function() {
-            expect(taskCount).toEqual(6);
-            done();
-        });
+        queue.awaitAll();
 
-        queue.start();
+        startAndDigest(queue);
 
-        $rootScope.$digest();
+        expect(taskCount).toEqual(6);
     });
 
-    it("should execute all the tasks in parallel", function(done) {
+    it("should execute all the tasks in parallel", function() {
         var queue = new PromiseQueue(10, true).registerAll(
             countingTask,
             countingTask,
@@ -104,14 +109,11 @@ describe("A PromiseQueue", function() {
             countingTask
         );
 
-        queue.awaitAll().then(function() {
-            expect(taskCount).toEqual(6);
-            done();
-        });
+        queue.awaitAll();
 
-        queue.start();
+        startAndDigest(queue);
 
-        $rootScope.$digest();
+        expect(taskCount).toEqual(6);
     });
 
     it("will not execute new tasks until old ones are complete", function() {
@@ -150,7 +152,7 @@ describe("A PromiseQueue", function() {
         expect(runningTasks.length).toEqual(3);
     });
 
-    it("should not be stopped by failing tasks", function(done) {
+    it("should not be stopped by failing tasks", function() {
         var queue = new PromiseQueue(1, true).registerAll(
             failingTask,
             countingTask,
@@ -160,23 +162,87 @@ describe("A PromiseQueue", function() {
             countingTask
         );
 
+        queue.awaitAll();
+
+        startAndDigest(queue);
+        
+        expect(taskCount).toEqual(5);
+    });
+
+    it("return a promise when registering a job, that resolves to the job value", function() {
+        var promise = new PromiseQueue(1).register(immediateTask);
+        var promiseValue = null;
+
+        promise.then(function(value) {
+            promiseValue = value;
+        });
+        $rootScope.$digest();
+        
+        expect(promiseValue).toEqual(immediateTaskResult)
+    });
+
+    it("should return immediately when awaiting on an empty queue", function(done) {
+        var queue = new PromiseQueue(1, true);
+
         queue.awaitAll().then(function() {
-            expect(taskCount).toEqual(5);
             done();
         });
 
-        queue.start();
-
-        $rootScope.$digest();
+        startAndDigest(queue);
     });
 
-    it("return a promise when registering a job, that resolves to the job value", function(done) {
-        var promise = new PromiseQueue(1).register(immediateTask);
+    it("should not return until all tasks in the waiting list have been processed", function() {
+        var queue = new PromiseQueue(1, true).registerAll(immediateTask);
+        var completed = false;
 
-        promise.then(function(value) {
-            expect(value).toEqual(immediateTaskResult);
-            done()
+        queue.awaitAll().then(function() {
+            completed = true;
         });
+
+        // before starting, awaitAll does not return since there is a task in the queue
         $rootScope.$digest();
+        expect(completed).toBeFalsy();
+
+        // once the queue is emptied, awaitAll returns
+        startAndDigest(queue);
+        expect(completed).toBeTruthy();
+    });
+
+    it("should return the number of waiting tasks", function() {
+        var queue = new PromiseQueue(1, true).registerAll(
+            immediateTask,
+            immediateTask,
+            immediateTask
+        );
+        
+        expect(queue.waitingListCount()).toBe(3);
+    });
+
+
+    it("should be pausable", function() {
+        var queue = new PromiseQueue(1, true);
+
+        // create a task that will pause the queue
+        var pauseTask = _.partial(thenCall, countingTask, function() {
+            queue.pause();
+        });
+        
+        // register a bunch of tasks, including the pause task as number 3
+        queue.registerAll(
+            countingTask,
+            countingTask,
+            pauseTask,
+            countingTask
+        );
+        
+        startAndDigest(queue);
+        
+        // three tasks have run and the queue is paused
+        expect(taskCount).toBe(3);
+
+        startAndDigest(queue);
+        
+        // restarting finishes the last task
+        expect(taskCount).toBe(4);
     });
 });
